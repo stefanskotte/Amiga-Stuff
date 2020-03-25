@@ -53,6 +53,18 @@ asm (                                                                      \
 "    rte                            \n"                                    \
 )
 
+void Reboot(void) __attribute__((noreturn));
+asm (
+"    .balign 4                      \n"
+"Reboot:                            \n"
+"    lea.l   0x1000000,%a0          \n"
+"    suba.l  -0x14(%a0),%a0         \n"
+"    movea.l 4(%a0),%a0             \n"
+"    subq.l  #2,%a0                 \n"
+"    reset                          \n"
+"    jmp     (%a0)                  \n"
+);
+
 /* Initialised by init.S */
 struct mem_region mem_region[16] __attribute__((__section__(".data")));
 uint16_t nr_mem_regions = 16;
@@ -814,8 +826,8 @@ static void mainmenu(void)
 
     while ((i = keycode_buffer - K_F1) >= ARRAY_SIZE(mainmenu_option)) {
         if (keycode_buffer == K_HELP) {
-            /* EAB, thread 78548 "Amiga hardware reset" */
-            asm volatile ( "lea (2).w,%a0; reset; jmp (%a0)" );
+            IRQ_DISABLE(INT_INTEN);
+            Reboot();
         }
     }
 
