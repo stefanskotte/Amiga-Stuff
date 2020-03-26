@@ -1074,6 +1074,14 @@ void cstart(void)
     cpu_hz = is_pal ? PAL_HZ : NTSC_HZ;
 
     sort(mem_region, nr_mem_regions, sizeof(mem_region[0]), mem_region_cmp);
+    for (i = 0; i < nr_mem_regions; i++) {
+        if ((mem_region[i].lower >= 0xc00000)
+            && (mem_region[i].upper > 0xd80000)) {
+            *(volatile uint32_t *)0xd80000 = 0x12345678;
+            if (*(volatile uint32_t *)0xd80000 != 0x12345678)
+                mem_region[i].upper = 0xd80000;
+        }
+    }
 
     /* Make sure the copper has run once through, then enable bitplane 
      * and sprite DMA starting from the next frame. */
