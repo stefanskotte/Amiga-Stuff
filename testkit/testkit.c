@@ -55,8 +55,13 @@ asm (                                                                      \
 
 void Reboot(void) __attribute__((noreturn));
 asm (
+"Reboot:\n"
+"    bset.b  #0,(7).w\n"
+"    move.l  #0xc040,%d0\n"
+"    dc.l    0x4e7b0006\n"
+"    jra do_reset\n nop\n nop\n"
 "    .balign 4                      \n"
-"Reboot:                            \n"
+"do_reset:                          \n"
 "    lea.l   0x1000000,%a0          \n"
 "    suba.l  -0x14(%a0),%a0         \n"
 "    movea.l 4(%a0),%a0             \n"
