@@ -91,7 +91,7 @@ const static uint16_t dummy_sprite[] = {
 static const char *chipset_name[] = { "OCS", "ECS", "AGA", "???" };
 uint8_t chipset_type;
 uint8_t cpu_model; /* 680[x]0 */
-uint16_t revision; /* 68060 only */
+uint8_t revision; /* 68060 only */
 
 /* PAL/NTSC and implied CPU frequency. */
 uint8_t is_pal;
@@ -431,7 +431,7 @@ static uint8_t detect_cpu_model(void)
 static int _detect_cpu_revision(void *_revision)
 {
     uint32_t rev;
-    uint16_t *revision = _revision;
+    uint8_t *revision = _revision;
     /* query pcr register for revision */
     /* in bits from 8 to 15 */
     /* example for rev 6: PCR: $0430 0601 */
@@ -439,17 +439,15 @@ static int _detect_cpu_revision(void *_revision)
 
     asm volatile(
         "moveq  #6,%0          ; "
-        : "=d"(rev)
-        : "0"(0)
-        : "d0");
+        : "=d"(rev) : "0"(0) : "d0");
 
-    *revision = (uint16_t)rev;
+    *revision = (uint8_t)rev;
     return revision;
 }
 
-static uint16_t detect_cpu_revision(void)
+static uint8_t detect_cpu_revision(void)
 {
-    uint16_t revision;
+    uint8_t revision;
     priv_call(_detect_cpu_revision, &revision);
     return revision;
 }
