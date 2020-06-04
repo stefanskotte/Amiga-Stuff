@@ -435,14 +435,12 @@ static int _detect_cpu_revision(void *_revision)
     /* in bits from 8 to 15 */
     /* example for rev 6: PCR: $0430 0601 */
     /*             rev 5: PCR: $0430 0501 */
+
     asm volatile(
-        "dc.l   0x4e7a0808 ; " /* movec %pcr,%d0  */ /* 68060 only */
-        "swap d0           ; "
-        "and.l  #$ffff,d0  ; "
-        "move.l d0,%0      ; "
-        : /*output*/ "=d"(revision)
-        : /*input*/ "0"(0)
-        : "d0" /*clobbers - temp vars*/);
+        "move.w #1234,%0      ; "
+        : "=d"(revision)
+        : "0"(0)
+        : "d0" );
 
     *revision = (uint16_t)revision;
     return revision;
