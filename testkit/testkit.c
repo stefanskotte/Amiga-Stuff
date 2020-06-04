@@ -431,25 +431,28 @@ static uint8_t detect_cpu_model(void)
 static int _detect_cpu_revision(void *_revision)
 {
     uint32_t rev;
-    uint8_t *revision = _revision;
+    uint16_t *revision = _revision;
     /* query pcr register for revision */
     /* in bits from 8 to 15 */
     /* example for rev 6: PCR: $0430 0601 */
     /*             rev 5: PCR: $0430 0501 */
 
     asm volatile(
-        "moveq  #6,%0          ; "
+        "dc.l   0x4e7a0808 ; " /* movec %pcr,%d0  */ /* 68060 only */
+        "swap d0           ; "
+        "and.l  #$ffff,d0  ; "
+        "move.l d0,%0      ; "
         : "=d"(rev)
         : "0"(0)
         : "d0", "d1", "a0", "a1");
 
-    *revision = (uint8_t)rev;
+    *revision = (uint16_t)rev;
     return 0;
 }
 
-static uint8_t detect_cpu_revision(void)
+static uint16_t detect_cpu_revision(void)
 {
-    uint8_t revision;
+    uint16_t revision;
     priv_call(_detect_cpu_revision, &revision);
     return revision;
 }
