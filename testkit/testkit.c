@@ -439,7 +439,7 @@ static int _detect_cpu_revision(void *_revision)
 
     asm volatile(
         "moveq  #6,%0          ; "
-        : "=d (rev) : "0" (0) : );
+        : "=d" (rev) : "0" (0) : );
 
     *revision = (uint8_t)rev;
     return revision;
