@@ -38,19 +38,18 @@
     cust->intena = __x;                         \
 } while (0)
 
-#define IRQ(name)                                                          \
-static void c_##name(struct c_exception_frame *frame) attribute_used;      \
-void name(void);                                                           \
-asm (                                                                      \
-#name":                             \n"                                    \
-"    movem.l %d0-%d1/%a0-%a1,-(%sp) \n" /* Save a c_exception_frame */     \
-"    move.l  %sp,%a0                \n"                                    \
-"    move.l  %a0,-(%sp)             \n"                                    \
-"    jbsr    c_"#name"              \n"                                    \
-"    addq.l  #4,%sp                 \n"                                    \
-"    movem.l (%sp)+,%d0-%d1/%a0-%a1 \n"                                    \
-"    rte                            \n"                                    \
-)
+#define IRQ(name)                                                                    \
+    static void c_##name(void) attribute_used;                                       \
+void name(void);                                                                     \
+    asm(                                                                             \
+        #name ":                             \n"                                     \
+              "    movem.l %d0-%d1/%a0-%a1,-(%sp) \n" /* Save a c_exception_frame */ \
+              "    move.l  %sp,%a0                \n"                                \
+              "    move.l  %a0,-(%sp)             \n"                                \
+              "    jbsr    c_" #name "              \n"                              \
+              "    addq.l  #4,%sp                 \n"                                \
+              "    movem.l (%sp)+,%d0-%d1/%a0-%a1 \n"                                \
+              "    rte                            \n")
 
 /* Initialised by init.S */
 struct mem_region mem_region[16] __attribute__((__section__(".data")));
@@ -866,8 +865,8 @@ static void mainmenu(void)
         print_line(&r);
         r.y++;
     }
-    sprintf(s, "------ 680%u0 - %s/%s - %uHz -----%c",
-            cpu_model,chipset_name[chipset_type],
+    sprintf(s, "------ 680%u0%u - %s/%s - %uHz -----%c",
+            cpu_model, revision, chipset_name[chipset_type],
             is_pal ? "PAL" : "NTSC",
             vbl_hz, is_pal ? '-' : ' ');
     print_line(&r);
