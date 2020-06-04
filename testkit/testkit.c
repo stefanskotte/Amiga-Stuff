@@ -1144,7 +1144,7 @@ void cstart(void)
     cust->dmacon = DMA_SETCLR | DMA_COPEN | DMA_DSKEN;
     cust->intena = (INT_SETCLR | INT_CIAA | INT_CIAB | INT_VBLANK | INT_SOFT);
 
-    cpu_revision = 0;
+    revision = 0;
 
     /* Detect our hardware environment. */
     cpu_model = detect_cpu_model();
