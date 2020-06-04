@@ -866,8 +866,8 @@ static void mainmenu(void)
         print_line(&r);
         r.y++;
     }
-    sprintf(s, "------ 680%u0 - %s/%s - %uHz -----%c",
-            cpu_model, chipset_name[chipset_type],
+    sprintf(s, "------ 680%u0%u - %s/%s - %uHz -----%c",
+            cpu_model, revision ,chipset_name[chipset_type],
             is_pal ? "PAL" : "NTSC",
             vbl_hz, is_pal ? '-' : ' ');
     print_line(&r);
