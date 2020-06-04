@@ -438,28 +438,13 @@ static int _detect_cpu_revision(void *_revision)
     /*             rev 5: PCR: $0430 0501 */
 
     asm volatile(
-        "lea    (0x10).w,%%a1  ; "                       /* %a0 = 0x10 (illegal_insn) */
-        "move.l (%%a1),%%d1    ; "                       /* %d1 = old illegal_insn_vec */
-        "lea    (1f).l,%%a0    ; "                       /* set illegal insn vector to... */
-        "move.l %%a0,(%%a1)    ; "                       /* ...skip to end and restore %ssp */
-        "move.l %%a7,%%a0      ; "                       /* save %ssp */
-        "moveq  #0,%0          ; "                       /* 680[0]0 */
-        "dc.l   0x4e7a0801     ; " /* movec %vbr,%d0  */ /* 68010+ only */
-        "moveq  #1,%0          ; "                       /* 680[1]0 */
-        "dc.l   0x4e7a0002     ; " /* movec %cacr,%d0 */ /* 68020+ only */
-        "moveq  #2,%0          ; "                       /* 680[2]0 */
-        "dc.l   0x4e7a0004     ; " /* movec %itt0,%d0 */ /* 68040+ only */
-        "moveq  #4,%0          ; "                       /* 680[4]0 */
-        "dc.l   0x4e7a0808     ; " /* movec %pcr,%d0  */ /* 68060 only */
-        "moveq  #6,%0          ; "                       /* 680[6]0 */
-        "1: move.l %%a0,%%a7   ; "                       /* restore %ssp */
-        "move.l %%d1,(%%a1)    ; "                       /* restore illegal_insn_vec */
+        "moveq  #6,%0          ; "
         : "=d"(rev)
         : "0"(0)
         : "d0", "d1", "a0", "a1");
 
     *revision = (uint8_t)rev;
-    return revision;
+    return 0;
 }
 
 static uint8_t detect_cpu_revision(void)
