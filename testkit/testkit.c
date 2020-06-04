@@ -430,7 +430,6 @@ static uint8_t detect_cpu_model(void)
 
 static int _detect_cpu_revision(void *_revision)
 {
-
     uint32_t rev;
     uint16_t *revision = _revision;
     /* query pcr register for revision */
