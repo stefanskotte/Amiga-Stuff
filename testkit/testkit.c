@@ -38,17 +38,18 @@
     cust->intena = __x;                         \
 } while (0)
 
-#define IRQ(name)                                                                    \
-    static void c_##name(void) attribute_used;                                       \
-void name(void);                                                                     \
-    asm(                                                                             \
-        #name ":                             \n"                                     \
-              "    movem.l %d0-%d1/%a0-%a1,-(%sp) \n" /* Save a c_exception_frame */ \
-              "    move.l  %sp,%a0                \n"                                \
-              "    move.l  %a0,-(%sp)             \n"                                \
-              "    jbsr    c_" #name "              \n"                              \
-              "    addq.l  #4,%sp                 \n"                                \
-              "    movem.l (%sp)+,%d0-%d1/%a0-%a1 \n"                                \
+#define IRQ(name)                                                                        \
+    static void c_##name(void) attribute_used;                                           \
+    void name(void);                                                                     \
+    asm(                                                                                 \
+        #name ":                             \n"                                         \
+              "    movem.l %d0-%d1/%a0-%a1,-(%sp) \n" /* Save a c_exception_frame */     \
+              "    move.b  16(%sp),%d0            \n" /* D0 = SR[15:8] */                \
+              "    and.b   #7,%d0                 \n" /* D0 = SR.IRQ_MASK */             \
+              "    jne     1f                     \n" /* SR.IRQ_MASK == 0? */            \
+              "    move.l  %sp,user_frame         \n" /* If so ours is the user_frame */ \
+              "1:  jbsr    c_" #name "              \n"                                  \
+              "    movem.l (%sp)+,%d0-%d1/%a0-%a1 \n"                                    \
               "    rte                            \n")
 
 /* Initialised by init.S */
