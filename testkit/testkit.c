@@ -39,16 +39,15 @@
 } while (0)
 
 #define IRQ(name)                                                          \
-static void c_##name(void) attribute_used;                                 \
+static void c_##name(struct c_exception_frame *frame) attribute_used;      \
 void name(void);                                                           \
 asm (                                                                      \
 #name":                             \n"                                    \
 "    movem.l %d0-%d1/%a0-%a1,-(%sp) \n" /* Save a c_exception_frame */     \
-"    move.b  16(%sp),%d0            \n" /* D0 = SR[15:8] */                \
-"    and.b   #7,%d0                 \n" /* D0 = SR.IRQ_MASK */             \
-"    jne     1f                     \n" /* SR.IRQ_MASK == 0? */            \
-"    move.l  %sp,user_frame         \n" /* If so ours is the user_frame */ \
-"1:  jbsr    c_"#name"              \n"                                    \
+"    move.l  %sp,%a0                \n"                                    \
+"    move.l  %a0,-(%sp)             \n"                                    \
+"    jbsr    c_"#name"              \n"                                    \
+"    addq.l  #4,%sp                 \n"                                    \
 "    movem.l (%sp)+,%d0-%d1/%a0-%a1 \n"                                    \
 "    rte                            \n"                                    \
 )
@@ -92,9 +91,10 @@ const static uint16_t dummy_sprite[] = {
 static const char *chipset_name[] = { "OCS", "ECS", "AGA", "???" };
 uint8_t chipset_type;
 uint8_t cpu_model; /* 680[x]0 */
+uint8_t revision; /* 68060 only */
 
 /* PAL/NTSC and implied CPU frequency. */
-static uint8_t is_pal;
+uint8_t is_pal;
 unsigned int cpu_hz;
 #define PAL_HZ 7093790
 #define NTSC_HZ 7159090
@@ -356,9 +356,31 @@ static uint8_t detect_vbl_hz(void)
     return (ticks > 130000) ? 50 : 60;
 }
 
-static uint8_t detect_cpu_model(void)
+int priv_call(int (*fn)(void *), void *arg);
+asm (
+    "priv_call:\n"
+    "    lea    (0x20).w,%a1   \n" /* a0 = 0x20 (privilege_violation) */
+    "    move.l (%a1),%d0      \n" /* d0 = old privilege_violation vector */
+    "    lea    (1f).l,%a0     \n"
+    "    move.l %a0,(%a1)      \n"
+    "1:  ori.w  #0x2000,%sr    \n"
+    "    move.l %d0,(%a1)      \n" /* restore privilege_violation vector */
+    "    move.l %usp,%a0       \n"
+    "    move.l 4(%a0),%a1     \n"
+    "    move.l 8(%a0),-(%sp)  \n"
+    "    jsr    (%a1)          \n"
+    "    addq.l #4,%sp         \n"
+    "    lea    (1f).l,%a0     \n"
+    "    move.l %a0,2(%sp)     \n" /* fix up return-to-user %pc */
+    "    rte                   \n"
+    "1:  rts                   \n"
+    );
+
+static int _detect_cpu_model(void *_pmodel, void *_revision)
 {
     uint32_t model;
+    uint8_t *pmodel = _pmodel;
+	uint8_t *revision = _revision;
 
     /* Attempt to access control registers which are supported only in 
      * increasingly small subsets of the model range. */
@@ -395,8 +417,42 @@ static uint8_t detect_cpu_model(void)
             : "=d" (cacr) : "0" (1u<<9) /* FD - Freeze Data Cache */ : "d0" );
         model = cacr ? 3 : 2;
     }
+    else if (model == 6) {
+    	/* query pcr register for revision */
+    	/* in bits from 8 to 15 */
+    	/* example for rev 6: PCR: $0430 0601 */
+    	/*             rev 5: PCR: $0430 0501 */	
+        asm volatile (
+	        "dc.l   0x4e7a0808 ; " /* movec %pcr,%d0  */ /* 68060 only */
+            "swap d0           ; "
+            "and.l  #$ffff,d0  ; "
+            "move.l d0,%0      ; "
+        	: /*output*/ "=d" (revision) : /*input*/ "0" (0) : "d0" /*clobbers - temp vars*/  );
+    }
 
-    return (uint8_t)model;
+	*revision = (uint8_t)revision;
+    *pmodel = (uint8_t)model;
+    return 0;
+}
+
+static uint8_t detect_cpu_model(void)
+{
+    uint8_t model;
+    uint32_t revision;
+    priv_call(_detect_cpu_model, &model, &revision);
+    return model;
+}
+
+static void system_reset(void)
+{
+    int _system_reset(void *unused)
+    {
+        /* EAB, thread 78548 "Amiga hardware reset" */
+        asm volatile ( "lea (2).w,%a0; reset; jmp (%a0)" );
+        return 0;
+    }
+
+    priv_call(_system_reset, NULL);
 }
 
 /* Wait for blitter idle. */
@@ -813,10 +869,8 @@ static void mainmenu(void)
     print_line(&r);
 
     while ((i = keycode_buffer - K_F1) >= ARRAY_SIZE(mainmenu_option)) {
-        if (keycode_buffer == K_HELP) {
-            /* EAB, thread 78548 "Amiga hardware reset" */
-            asm volatile ( "lea (2).w,%a0; reset; jmp (%a0)" );
-        }
+        if (keycode_buffer == K_HELP)
+            system_reset();
     }
 
     clear_whole_screen();
@@ -832,7 +886,7 @@ static void mainmenu(void)
 }
 
 IRQ(CIAA_IRQ);
-static void c_CIAA_IRQ(void)
+static void c_CIAA_IRQ(struct c_exception_frame *frame)
 {
     uint8_t key, icr = ciaa->icr;
 
@@ -867,7 +921,7 @@ static void c_CIAA_IRQ(void)
 }
 
 IRQ(CIAB_IRQ);
-static void c_CIAB_IRQ(void)
+static void c_CIAB_IRQ(struct c_exception_frame *frame)
 {
     uint8_t icr = ciab->icr;
 
@@ -894,7 +948,7 @@ static void c_CIAB_IRQ(void)
 
 IRQ(VBLANK_IRQ);
 static uint16_t vblank_joydat, mouse_x, mouse_y;
-static void c_VBLANK_IRQ(void)
+static void c_VBLANK_IRQ(struct c_exception_frame *frame)
 {
     uint16_t joydat, hstart, vstart, vstop;
     uint16_t cur16 = get_ciaatb();
@@ -926,7 +980,7 @@ static void c_VBLANK_IRQ(void)
 }
 
 IRQ(SOFT_IRQ);
-static void c_SOFT_IRQ(void)
+static void c_SOFT_IRQ(struct c_exception_frame *frame)
 {
     static uint16_t prev_lmb;
     uint16_t lmb, i, x, y;
@@ -987,9 +1041,32 @@ static void c_SOFT_IRQ(void)
 
     /* Perform an asynchronous function cancellation if so instructed. */
     if (do_cancel)
-        cancel_call(&test_cancellation);
+        cancel_call(&test_cancellation, frame);
 
     IRQ_RESET(INT_SOFT);
+}
+
+static void cia_init(volatile struct amiga_cia * const cia, uint8_t icrf)
+{
+    /* Enable only the requested interrupts. */
+    cia->icr = (uint8_t)~CIAICR_SETCLR;
+    cia->icr = CIAICR_SETCLR | icrf;
+ 
+    /* Start all CIA timers in continuous mode. */
+    cia->talo = cia->tahi = cia->tblo = cia->tbhi = 0xff;
+    cia->cra = cia->crb = CIACRA_LOAD | CIACRA_START;
+}
+
+void ciaa_init(void)
+{
+    /* CIAA ICR: We only care about keyboard. */
+    cia_init(ciaa, CIAICR_SERIAL);
+}
+
+void ciab_init(void)
+{
+    /* CIAB ICR: We only care about FLAG line (disk index). */    
+    cia_init(ciab, CIAICR_FLAG);
 }
 
 void cstart(void)
@@ -1003,13 +1080,8 @@ void cstart(void)
     /* Set keyboard serial line to input mode. */
     ciaa->cra &= ~CIACRA_SPMODE;
 
-    /* Set up CIAA ICR. We only care about keyboard. */
-    ciaa->icr = (uint8_t)~CIAICR_SETCLR;
-    ciaa->icr = CIAICR_SETCLR | CIAICR_SERIAL;
-
-    /* Set up CIAB ICR. We only care about FLAG line (disk index). */
-    ciab->icr = (uint8_t)~CIAICR_SETCLR;
-    ciab->icr = CIAICR_SETCLR | CIAICR_FLAG;
+    ciaa_init();
+    ciab_init();
 
     /* Enable blitter DMA. */
     cust->dmacon = DMA_SETCLR | DMA_BLTEN;
@@ -1056,18 +1128,14 @@ void cstart(void)
 
     vblank_joydat = cust->joy0dat;
 
-    /* Start all CIA timers in continuous mode. */
-    ciaa->talo = ciaa->tahi = ciab->talo = ciab->tahi = 0xff;
-    ciaa->tblo = ciaa->tbhi = ciab->tblo = ciab->tbhi = 0xff;
-    ciaa->cra = ciab->cra = CIACRA_LOAD | CIACRA_START;
-    ciaa->crb = ciab->crb = CIACRB_LOAD | CIACRB_START;
-
     wait_bos();
     cust->dmacon = DMA_SETCLR | DMA_COPEN | DMA_DSKEN;
     cust->intena = (INT_SETCLR | INT_CIAA | INT_CIAB | INT_VBLANK | INT_SOFT);
 
     /* Detect our hardware environment. */
     cpu_model = detect_cpu_model();
+    if (cpu_model == 0)
+        fixup_68000_unrecoverable_faults();
     chipset_type = detect_chipset_type();
     vbl_hz = detect_vbl_hz();
     is_pal = detect_pal_chipset();
@@ -1080,6 +1148,14 @@ void cstart(void)
     delay_ms(1);
     wait_bos();
     cust->dmacon = DMA_SETCLR | DMA_BPLEN | DMA_SPREN;
+
+    /* Fat Gary "Bus Timeout Mode" (TIMEOUT): Bit 7 of DE0000. 
+     *  =0: silent bus timeout (power on default)
+     *  =1: #BERR on timeout (set by later Kickstarts) */
+    *(volatile uint8_t *)0xde0000 = 0;
+    /* Fat Gary "Bus Timeout Enable" (TOENB): Bit 7 of DE0001. 
+     *  =0: timeout enabled (power on default) */
+    *(volatile uint8_t *)0xde0001 = 0;
 
     for (;;)
         mainmenu();

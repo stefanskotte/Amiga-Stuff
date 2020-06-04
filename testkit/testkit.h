@@ -11,7 +11,7 @@
  *  - CIA Timers
  *  - Serial / Parallel
  * 
- * Written & released by Keir Fraser <keir.xen@gmail.com> HEST
+ * Written & released by Keir Fraser <keir.xen@gmail.com>
  * 
  * This is free and unencumbered software released into the public domain.
  * See the file COPYING for more details, or visit <http://unlicense.org>.
@@ -42,7 +42,7 @@ static volatile struct amiga_cia * const ciab =
 #define CHIPSET_unknown 3
 extern uint8_t chipset_type;
 extern uint8_t cpu_model; /* 680[x]0 */
-
+extern uint32_t revision; /* 68060 revision */
 
 /*******************
  * KEYBOARD
@@ -127,6 +127,13 @@ void copperlist_default(void);
 /* Detected CPU frequency. CIA timers run at cpu_hz/10. */
 extern unsigned int cpu_hz;
 
+/* PAL/NTSC CPU and CIA timings. */
+extern uint8_t is_pal;
+
+/* Reinitialise CIAA/CIAB if they are messed with. */
+void ciaa_init(void);
+void ciab_init(void);
+
 /* Loop to get consistent current CIA timer value. */
 #define get_ciatime(_cia, _tim) ({              \
     uint8_t __hi, __lo;                         \
@@ -182,6 +189,7 @@ void call_cancellable_test(int (*fn)(void *), void *arg);
  */
 
 void init_crash_handler(void);
+void fixup_68000_unrecoverable_faults(void);
 
 extern char build_date[];
 extern char build_time[];
