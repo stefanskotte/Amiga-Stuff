@@ -438,7 +438,7 @@ static int _detect_cpu_model(void *_pmodel, void *_revision)
 static uint8_t detect_cpu_model(void)
 {
     uint8_t model;
-    uint32_t revision;
+    uint8_t revision;
     priv_call(_detect_cpu_model, &model, &revision);
     return model;
 }
