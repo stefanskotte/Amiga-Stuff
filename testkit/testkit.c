@@ -91,7 +91,7 @@ const static uint16_t dummy_sprite[] = {
 static const char *chipset_name[] = { "OCS", "ECS", "AGA", "???" };
 uint8_t chipset_type;
 uint8_t cpu_model; /* 680[x]0 */
-uint8_t revision; /* 68060 only */
+uint16_t revision; /* 68060 only */
 
 /* PAL/NTSC and implied CPU frequency. */
 uint8_t is_pal;
