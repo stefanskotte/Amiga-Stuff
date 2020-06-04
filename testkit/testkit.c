@@ -1146,17 +1146,17 @@ void cstart(void)
     cust->dmacon = DMA_SETCLR | DMA_COPEN | DMA_DSKEN;
     cust->intena = (INT_SETCLR | INT_CIAA | INT_CIAB | INT_VBLANK | INT_SOFT);
 
-    revision = 0;
+    /* revision = 0; */
 
     /* Detect our hardware environment. */
     cpu_model = detect_cpu_model();
     if (cpu_model == 0) {
         fixup_68000_unrecoverable_faults();
     }
-    else if (cpu_model == 6)
+    /*else if (cpu_model == 6)
     {
         revision = detect_cpu_revision();
-    }
+    }*/
 
     chipset_type = detect_chipset_type();
     vbl_hz = detect_vbl_hz();
