@@ -446,7 +446,7 @@ static int _detect_cpu_revision(void *_revision)
     return revision;
 }
 
-static uint8_t detect_cpu_revision(void)
+static uint16_t detect_cpu_revision(void)
 {
     uint16_t revision;
     priv_call(_detect_cpu_revision, &revision);
