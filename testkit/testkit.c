@@ -438,10 +438,10 @@ static int _detect_cpu_revision(void *_revision)
     /*             rev 5: PCR: $0430 0501 */
 
     asm volatile(
-        "move.w #1,%0      ; "
+        "moveq  #6,%0          ; "
         : "=d"(rev)
         : "0"(0)
-        : "d0" );
+        : "d0");
 
     *revision = (uint16_t)rev;
     return revision;
