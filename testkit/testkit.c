@@ -430,7 +430,7 @@ static uint8_t detect_cpu_model(void)
 
 static int _detect_cpu_revision(void *_revision)
 {
-    uint8_t *revision = _revision;
+    uint16_t *revision = _revision;
     /* query pcr register for revision */
     /* in bits from 8 to 15 */
     /* example for rev 6: PCR: $0430 0601 */
@@ -444,13 +444,13 @@ static int _detect_cpu_revision(void *_revision)
         : /*input*/ "0"(0)
         : "d0" /*clobbers - temp vars*/);
 
-    *revision = (uint8_t)revision;
+    *revision = (uint16_t)revision;
     return revision;
 }
 
 static uint8_t detect_cpu_revision(void)
 {
-    uint8_t revision;
+    uint16_t revision;
     priv_call(_detect_cpu_revision, &revision);
     return revision;
 }
@@ -1153,7 +1153,7 @@ void cstart(void)
     }
     else if (cpu_model == 6)
     {
-        cpu_revision = detect_cpu_revision();
+        revision = detect_cpu_revision();
     }
 
     chipset_type = detect_chipset_type();

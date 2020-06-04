@@ -42,7 +42,7 @@ static volatile struct amiga_cia * const ciab =
 #define CHIPSET_unknown 3
 extern uint8_t chipset_type;
 extern uint8_t cpu_model; /* 680[x]0 */
-extern uint8_t revision; /* 68060 revision */
+extern uint16_t revision; /* 68060 revision */
 
 /*******************
  * KEYBOARD
