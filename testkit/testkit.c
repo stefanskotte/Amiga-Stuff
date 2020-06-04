@@ -376,11 +376,10 @@ asm (
     "1:  rts                   \n"
     );
 
-static int _detect_cpu_model(void *_pmodel, void *_revision)
+static int _detect_cpu_model(void *_pmodel)
 {
     uint32_t model;
     uint8_t *pmodel = _pmodel;
-	uint8_t *revision = _revision;
 
     /* Attempt to access control registers which are supported only in 
      * increasingly small subsets of the model range. */
@@ -417,20 +416,7 @@ static int _detect_cpu_model(void *_pmodel, void *_revision)
             : "=d" (cacr) : "0" (1u<<9) /* FD - Freeze Data Cache */ : "d0" );
         model = cacr ? 3 : 2;
     }
-    else if (model == 6) {
-    	/* query pcr register for revision */
-    	/* in bits from 8 to 15 */
-    	/* example for rev 6: PCR: $0430 0601 */
-    	/*             rev 5: PCR: $0430 0501 */	
-        asm volatile (
-	        "dc.l   0x4e7a0808 ; " /* movec %pcr,%d0  */ /* 68060 only */
-            "swap d0           ; "
-            "and.l  #$ffff,d0  ; "
-            "move.l d0,%0      ; "
-        	: /*output*/ "=d" (revision) : /*input*/ "0" (0) : "d0" /*clobbers - temp vars*/  );
-    }
 
-	*revision = (uint8_t)revision;
     *pmodel = (uint8_t)model;
     return 0;
 }
@@ -438,9 +424,35 @@ static int _detect_cpu_model(void *_pmodel, void *_revision)
 static uint8_t detect_cpu_model(void)
 {
     uint8_t model;
-    uint8_t revision;
-    priv_call(_detect_cpu_model, &model, &revision);
+    priv_call(_detect_cpu_model, &model);
     return model;
+}
+
+static int _detect_cpu_revision(void *_revision)
+{
+    uint8_t *revision = _revision;
+    /* query pcr register for revision */
+    /* in bits from 8 to 15 */
+    /* example for rev 6: PCR: $0430 0601 */
+    /*             rev 5: PCR: $0430 0501 */
+    asm volatile(
+        "dc.l   0x4e7a0808 ; " /* movec %pcr,%d0  */ /* 68060 only */
+        "swap d0           ; "
+        "and.l  #$ffff,d0  ; "
+        "move.l d0,%0      ; "
+        : /*output*/ "=d"(revision)
+        : /*input*/ "0"(0)
+        : "d0" /*clobbers - temp vars*/);
+
+    *revision = (uint8_t)revision;
+    return revision;
+}
+
+static uint8_t detect_cpu_revision(void)
+{
+    uint8_t revision;
+    priv_call(_detect_cpu_revision, &revision);
+    return revision;
 }
 
 static void system_reset(void)
@@ -1132,10 +1144,18 @@ void cstart(void)
     cust->dmacon = DMA_SETCLR | DMA_COPEN | DMA_DSKEN;
     cust->intena = (INT_SETCLR | INT_CIAA | INT_CIAB | INT_VBLANK | INT_SOFT);
 
+    cpu_revision = 0;
+
     /* Detect our hardware environment. */
     cpu_model = detect_cpu_model();
-    if (cpu_model == 0)
+    if (cpu_model == 0) {
         fixup_68000_unrecoverable_faults();
+    }
+    else if (cpu_model == 6)
+    {
+        cpu_revision = detect_cpu_revision();
+    }
+
     chipset_type = detect_chipset_type();
     vbl_hz = detect_vbl_hz();
     is_pal = detect_pal_chipset();
